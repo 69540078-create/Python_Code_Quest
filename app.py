@@ -10,7 +10,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# คลังคำถาม 5 ด่าน พร้อมคำอธิบายตัวเลือก (Choices) ทั้งหมด
+# ==========================================
+# คลังคำถามสมบูรณ์ 5 ด่าน (รวม 15 ข้อ)
+# ==========================================
 QUESTIONS_BANK = {
     1: [
         {
@@ -220,6 +222,8 @@ def get_rank_message(score):
         return "☠️ ระดับ: สลบคาคีย์บอร์ด\n\n\"แม่บอกแล้วไง อย่าหลับตอนเรียนน่ะ!! ตื่นมาอ่านเฉลยเดี๋ยวนี้เลยนะ!\""
 
 # กำหนด Session State
+if "game_started" not in st.session_state:
+    st.session_state.game_started = False
 if "level" not in st.session_state:
     st.session_state.level = 1
 if "q_index" not in st.session_state:
@@ -236,39 +240,63 @@ if "answered" not in st.session_state:
     st.session_state.answered = False
 if "show_review" not in st.session_state:
     st.session_state.show_review = False
-
-# เก็บประวัติการตอบของผู้เล่น (สำหรับหน้าเฉลย)
 if "user_results" not in st.session_state:
-    st.session_state.user_results = {}  # key: (level, q_index) -> value: True/False
-
-# รีเฟรชหน้าจอเพื่ออัปเดตเวลา
-if not st.session_state.game_over and not st.session_state.answered:
-    st_autorefresh(interval=1000, key="timer_refresh")
+    st.session_state.user_results = {}
 
 st.title("🐍 Python Code Quest")
 st.caption("เกมทบทวนความรู้ภาษา Python สำหรับนิสิต")
 
 # ==========================================
-# 1. หน้าจบเกม / สรุปคะแนน / ดูเฉลย
+# 0. หน้ากติกาและแนะนำการเล่นก่อนเริ่มเกม
+# ==========================================
+if not st.session_state.game_started:
+    st.subheader("📋 กติกาและการคิดคะแนน")
+    
+    st.markdown("""
+    ยินดีต้อนรับเข้าสู่เกม **Python Code Quest**! มาทบทวนความรู้ภาษา Python ผ่าน 5 ด่านสุดท้าทายกันครับ
+
+    ### 🎮 กติกาการเล่น:
+    1. **จำนวนด่าน:** มีทั้งหมด **5 ด่าน** (ด่านละ 3 คำถาม รวม 15 ข้อ)
+    2. **เวลา:** มีเวลาด่านละ **2 นาที (120 วินาที)** (หากหมดเวลาจะถูกส่งไปด่านถัดไปทันที)
+    3. **คะแนนต่อข้อ:** 
+       - ตอบถูกครั้งแรก: ได้รับ **10 คะแนนเต็ม**
+       - ตอบผิด: สามารถตอบใหม่ได้ โดยคะแนนจะลดลง **ครั้งละ 2 คะแนน**
+       - ตอบผิดได้สูงสุด 2 ครั้ง (ตอบผิดครั้งที่ 3 จะได้ **0 คะแนน** ในข้อนั้น)
+    4. **เฉลยคำตอบ:** หลังจบเกม สามารถกดดูเฉลยคำตอบพร้อมคำอธิบายตัวเลือกทั้งหมดอย่างละเอียดได้
+    """)
+    
+    st.divider()
+    
+    if st.button("🚀 เริ่มเล่นเกม", type="primary", use_container_width=True):
+        st.session_state.game_started = True
+        st.session_state.start_time = time.time()
+        st.rerun()
+        
+    st.stop()
+
+# รีเฟรชหน้าจอเพื่ออัปเดตเวลาเฉพาะขณะเล่นเกม
+if st.session_state.game_started and not st.session_state.game_over and st.session_state.level <= 5 and not st.session_state.answered:
+    st_autorefresh(interval=1000, key="timer_refresh")
+
+# ==========================================
+# 1. หน้าจบเกม / สรุปคะแนน / ดูเฉลยทั้งหมด (ด่าน > 5 หรือ Game Over)
 # ==========================================
 if st.session_state.level > 5 or st.session_state.game_over:
     if st.session_state.show_review:
-        # หน้าดูเฉลยคำตอบย้อนหลัง
-        st.subheader("📖 เฉลยคำตอบและคำอธิบายอย่างละเอียด")
+        # หน้าดูเฉลยคำตอบย้อนหลังทั้งหมด
+        st.subheader("📖 เฉลยคำตอบและคำอธิบายตัวเลือกทั้งหมด")
         for lvl in range(1, 6):
             with st.expander(f"🚩 ด่านที่ {lvl}", expanded=True):
                 for idx, q in enumerate(QUESTIONS_BANK[lvl]):
                     q_key = (lvl, idx)
                     is_correct = st.session_state.user_results.get(q_key, False)
                     
-                    # แสดงว่าตอบถูกหรือตอบผิด
                     status_tag = "✅ **คุณตอบถูกต้อง**" if is_correct else "❌ **คุณตอบผิด (หรือไม่ได้คะแนน)**"
                     st.markdown(f"**ข้อ {idx + 1}: {q['question']}** ({status_tag})")
                     st.success(f"✅ **คำตอบที่ถูกต้อง:** ข้อ {q['answer']}. {q['choices'][q['answer']]}")
                     st.info(f"💡 **เหตุผลสรุป:** {q['explanation']}")
                     
-                    # แสดงรายละเอียดความหมายของแต่ละ Choice
-                    st.markdown("**📌 ความหมายของแต่ละตัวเลือก (Choices):**")
+                    st.markdown("**📌 ความหมายและการใช้งานของแต่ละตัวเลือก (Choices):**")
                     for choice_key, detail in q['choices_detail'].items():
                         st.markdown(f"- **{choice_key}:** {detail}")
                     st.divider()
@@ -293,6 +321,7 @@ if st.session_state.level > 5 or st.session_state.game_over:
                 st.rerun()
         with col_restart:
             if st.button("🔄 เริ่มเล่นใหม่อีกครั้ง", type="primary", use_container_width=True):
+                st.session_state.game_started = False
                 st.session_state.level = 1
                 st.session_state.q_index = 0
                 st.session_state.total_score = 0
@@ -372,11 +401,11 @@ for key in ["A", "B", "C", "D"]:
                 st.rerun()
 
 # ==========================================
-# 4. แสดงผลลัพธ์หลังจากกดตอบ (ในระหว่างเล่น)
+# 4. แสดงผลลัพธ์หลังจากกดตอบ (แยกกรณีตอบถูก และตอบผิดเด็ดขาด)
 # ==========================================
 if st.session_state.answered:
     # --------------------------------------
-    # กรณีตอบถูก (แสดงกล่องสีเขียว ✅)
+    # กรณีที่ 1: ตอบถูกต้อง 🟢
     # --------------------------------------
     if getattr(st.session_state, "is_correct_this_turn", False):
         score_earned = 10 - (st.session_state.attempts * 2)
@@ -384,14 +413,14 @@ if st.session_state.answered:
         st.info(f"💡 **เหตุผลสรุป:** {q_data['explanation']}")
     
     # --------------------------------------
-    # กรณีตอบผิดครบ 3 ครั้ง
+    # กรณีที่ 2: ตอบผิดครบ 3 ครั้ง 🔴
     # --------------------------------------
     else:
         st.error("❌ ตอบผิดครบ 3 ครั้งแล้ว คุณไม่ได้คะแนนในข้อนี้")
         st.warning(f"🔑 **คำตอบที่ถูกต้องคือข้อ {q_data['answer']}. {choices[q_data['answer']]}**")
         st.info(f"💡 **เหตุผล:** {q_data['explanation']}")
 
-    # ปุ่มสำหรับกดข้ามไปข้อถัดไป
+    # ปุ่มข้ามไปข้อถัดไป
     if st.button("ข้อถัดไป ➡️", type="primary", use_container_width=True):
         st.session_state.q_index += 1
         st.session_state.attempts = 0
